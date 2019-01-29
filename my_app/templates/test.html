@@ -1,20 +1,32 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
   <head>
-    <meta http-equiv="refresh" content="1">  
+    <meta http-equiv="refresh" content="1">
     <meta charset="utf-8">
     <title></title>
   </head>
   <body>
     <table style="width:50%" style="height:50%">
       <thead>
-        <th>Jméno</th>
+        <th>Jméno</th><th>Třída</th><th>Oběd</th>
       </thead>>
       {% for zak in stravnici %}
       <tr>
-        <th>{{zak}}</th>
+        <th id="jmeno"></th><th>{{zak[1]}}</th><th>{{zak[2]}}</th>
       </tr>
       {% endfor %}
     </table>
   </body>
-</html>>
+  <script>
+  var xmlhttp = new XMLHttpRequest();
+xmlhttp.onreadystatechange = function()
+ {
+  if (this.readyState == 4 && this.status == 200)
+  {
+    var myObj = JSON.parse(this.responseText);
+    document.getElementById("jmeno").innerHTML = myObj[0][0];
+  }
+ };
+xmlhttp.open("GET", "../stravnici.json", true);
+xmlhttp.send(); </script>
+  </html>>
