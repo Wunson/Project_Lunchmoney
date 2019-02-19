@@ -1,23 +1,45 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
   <head>
-    <meta http-equiv="refresh" content="1">
     <meta charset="utf-8">
     <title></title>
   </head>
   <body>
-    <table style="width:50%" style="height:50%">
+    <table style="width:50%" style="height:50%" id="lunchTable">
       <thead>
         <th>Jméno</th><th>Třída</th><th>Oběd</th>
-      </thead>>
-      {% for zak in stravnici %}
+      </thead>
       <tr>
-        <th id="jmeno"></th><th>{{zak[1]}}</th><th>{{zak[2]}}</th>
+        <th id="jmeno"></th><th id="trida"></th><th id="obed"></th>
       </tr>
-      {% endfor %}
     </table>
+
   </body>
-  <script>
+  <script type="text/javascript">
+
+  async function update_data(){
+    const response = await fetch("/get_data");
+    const data = await response.json();
+
+    var rows = (document.getElementById("lunchTable").getElementsByTagName("tr").length) - 1;
+    for (var i = 0; i < rows; i++) {
+      document.getElementById("lunchTable").deleteRow(1);
+        }
+
+    for (var i = 0; i <data.length; i++) {
+      var table = document.getElementById("lunchTable");
+      var row = table.insertRow(i+1);
+      var cells = new Array(data[i].length);
+
+      for(var j = 0; j < data[i].length; j++)  {
+        cells[j] = row.insertCell(j);
+        cells[j].innerHTML = data[i][j];
+        }
+      }
+    };
+
+    update_data();
+	  setInterval(function () {update_data();}, 800);
 
   </script>
-  </html>
+</html>
