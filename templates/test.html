@@ -14,26 +14,44 @@
       </tr>
     </table>
 
+    <table id="pocet_obedu">
+      <tr>
+        <th>Jedničky:</th><th id="pocet_jednicek"></th>
+      </tr>
+
+      <tr>
+        <th>Dvojky:</th><th id="pocet_dvojek"></th>
+      </tr>
+    </table>
+
   </body>
   <script type="text/javascript">
 
   async function update_data(){
-    const response = await fetch("/get_data");
-    const data = await response.json();
+    const response = await fetch("/get_data");    //sends request with /get_data url
+    const data = await response.json();           //saves responce into data
 
-    var rows = (document.getElementById("lunchTable").getElementsByTagName("tr").length) - 1;
+    console.log(data)
+
+    var stravnici = data[0]
+    var obedy = data[1]
+
+    document.getElementById("pocet_jednicek").innerHTML = obedy.jednicky
+    document.getElementById("pocet_dvojek").innerHTML = obedy.dvojky
+
+    var rows = (document.getElementById("lunchTable").getElementsByTagName("tr").length) - 1; //counts lenght of existing table - 1(head)
     for (var i = 0; i < rows; i++) {
-      document.getElementById("lunchTable").deleteRow(1);
+      document.getElementById("lunchTable").deleteRow(1); //deletes all rows below thead
         }
 
-    for (var i = 0; i <data.length; i++) {
+    for (var i = 0; i <stravnici.length; i++) {
       var table = document.getElementById("lunchTable");
       var row = table.insertRow(i+1);
-      var cells = new Array(data[i].length);
+      var cells = new Array(stravnici[i].length);
 
-      for(var j = 0; j < data[i].length; j++)  {
+      for(var j = 0; j < stravnici[i].length; j++)  {
         cells[j] = row.insertCell(j);
-        cells[j].innerHTML = data[i][j];
+        cells[j].innerHTML = stravnici[i][j];
         }
       }
     };
