@@ -1,7 +1,9 @@
 from flask import Flask, jsonify, render_template
+from time import localtime, time
 import threading
 import logging
 import mysql.connector
+import json
 
 mydb = mysql.connector.connect(host="localhost",
                                 user="root",
@@ -16,16 +18,54 @@ def kolik_obedu():
     dvojky = cursor.fetchall()
     return {"jednicky":jednicky[0][0], "dvojky":dvojky[0][0]}
 
-def vydat_obed(karta, stravnik):
+def vydat_obed(stravnik, karta):
     global pocty_obedu
+    print("vydano")
     if stravnik[2] == 1:
         pocty_obedu["jednicky"] -=1
     elif stravnik[2] == 2:
         pocty_obedu["dvojky"] -=1
-    else:
-        pass
+    else:pass
 
-    cursor.execute("UPDATE OBEDY SET STAV=2 WHERE id=%s"% (karta)) #MÍSTO ID DÁT DATA Z KARTY
+    cursor.execute("UPDATE OBEDY SET STAV=2 WHERE jmeno=%s"% (karta)) #MÍSTO ID DÁT DATA Z KARTY
+
+def in_time(range, cas):
+    pred = (range[0][0] > cas[0]) or ((range[0][0] == cas[0]) and (range[0][1] > cas[1]))
+    po =   (range[1][0] < cas[0]) or ((range[1][0] == cas[0]) and (range[1][1] < cas[1]))
+    return not (pred or po)
+
+def what_day(num):
+    days = ("po", "ut", "st", "ct", "pa", "so", "ne")
+    return days[num]
+
+def je_prestavka(cas, rozvrhy):
+    for doba in rozvrhy["prestavky"].values():
+        return in_time(doba, cas)
+
+    return False
+
+def kontrola(stravnik, karta):
+    cas = localtime(time())
+    day = what_day(cas.tm_wday)
+    cas = (cas.tm_hour,cas.tm_min)
+    cas = (12,25)
+
+    with open("rozvrhy.json", "r") as json_data:
+        rozvrhy = json.load(json_data)
+
+    if stravnik[3] != 1:
+        print("nemá") # + píp
+    else:
+        prestavka = rozvrhy["1A"][day]
+        doba = rozvrhy["prestavky"]["2"]
+        if in_time(doba, cas):
+            vydat_obed(stravnik, karta)
+        else:
+            if je_prestavka(cas, rozvrhy):
+                print("ven!")
+
+            else:
+                vydat_obed(stravnik, karta)
 
 def pip(karta):
     cursor.execute("SELECT * FROM OBEDY WHERE id=%s"% (karta)) #MÍSTO ID DÁT DATA Z KARTY
@@ -38,36 +78,35 @@ def reader_loop():
         karta = input(">>")     #SEM DÁT ČTENÍ KARTY
         if karta == "q":
             break
-        if karta:
+        elif karta:
             stravnik = pip(karta)
             stravnici.append(stravnik)
+
+            print(stravnik, "pip")
+            print(stravnici)
 
             if len(stravnici) > 4:
                 stravnici.remove(stravnici[0])
 
-            if stravnik[3] == 1:
-                vydat_obed(karta, stravnik)
-            else:
-                pass
+            kontrola(stravnik, karta)
 
 stravnici = []
 print(stravnici, "generate")
 pocty_obedu = kolik_obedu()
 threading._start_new_thread(reader_loop, ())
 
-
-
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
+
+log = logging.getLogger('werkzeug') # just for testing
 log.disabled = True
 app.logger.disabled = True
 
 @app.route("/")
 @app.route("/index")
 def index():
-    return render_template("table.html")
+    return render_template("test.html")
 
 @app.route("/get_data", methods=["POST", "GET"])
 def send_data():
-    print(stravnici, pocty_obedu, "sent")
+    #print(stravnici, pocty_obedu, "sent")
     return jsonify(stravnici, pocty_obedu)
