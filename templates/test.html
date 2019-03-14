@@ -27,7 +27,9 @@
 
   </body>
   <script type="text/javascript" charset="utf-8">
-      var socket = io.connect("http://192.168.1.144:5000");
+
+
+      var socket = io.connect("http://192.168.1.144:5000"); //sem dát správnou ip
       socket.on("connect", function() {
         console.log("connect")
         socket.emit("connected", {data: "ping"});
@@ -41,6 +43,16 @@
         console.log(obedy);
         document.getElementById("pocet_jednicek").innerHTML = obedy.jednicky;
         document.getElementById("pocet_dvojek").innerHTML = obedy.dvojky;
+      });
+
+      socket.on("a_ven", function(data){
+        console.log(data.stravnik[0]);
+
+        if (confirm(data.stravnik[0] + " tu je mimo rozvrh. Vydat Oběd?")); {
+          socket.emit("vydano", data);
+          alert("Vydáno");
+
+        };
       });
 
       socket.on("pip", function(stravnici){

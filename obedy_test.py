@@ -25,6 +25,7 @@ def kolik_obedu():
     return pocet
 
 def in_time(range, cas):
+    print(range, cas)
     pred = (range[0][0] > cas[0]) or ((range[0][0] == cas[0]) and (range[0][1] > cas[1]))
     po =   (range[1][0] < cas[0]) or ((range[1][0] == cas[0]) and (range[1][1] < cas[1]))
     return not (pred or po)
@@ -35,8 +36,8 @@ def what_day(num):
 
 def je_prestavka(cas, rozvrhy):
     for doba in rozvrhy["prestavky"].values():
-        return in_time(doba, cas)
-
+        if in_time(doba, cas):
+            return True
     return False
 
 def vydat_obed(stravnik, karta, pocty_obedu):
@@ -54,24 +55,26 @@ def kontrola(stravnik, karta, pocty_obedu):
     cas = localtime(time())
     day = what_day(cas.tm_wday)
     cas = (cas.tm_hour,cas.tm_min)
-    cas = (12,25)
+    cas = (12,25) #pryč s tím
+    print(cas, day)
 
     with open("rozvrhy.json", "r") as json_data:
         rozvrhy = json.load(json_data)
 
-    print(stravnik[3])
     if stravnik[3] != 1:
         print("nemá") # + píp
     else:
-        prestavka = rozvrhy["1A"][day]
-        doba = rozvrhy["prestavky"]["2"]
+        prestavka = rozvrhy["1A"][day] #pryč s tím
+        doba = rozvrhy["prestavky"][prestavka]
         if in_time(doba, cas):
+            print("cas")
             vydat_obed(stravnik, karta, pocty_obedu)
         else:
             if je_prestavka(cas, rozvrhy):
+                socketio.emit("a_ven", {"stravnik":stravnik, "karta":karta})
                 print("ven!")
-
             else:
+                print("else")
                 vydat_obed(stravnik, karta, pocty_obedu)
 
 def pip(karta):
@@ -89,7 +92,6 @@ def reader_loop(stravnici, pocty_obedu):
             stravnici.append(stravnik)
 
             print(stravnik, "pip")
-            print(stravnici)
 
             if len(stravnici) > 4:
                 stravnici.remove(stravnici[0])
@@ -107,6 +109,10 @@ threading._start_new_thread(reader_loop, (stravnici, pocty_obedu))
 @app.route("/index")
 def index():
     return render_template("test.html")
+
+@socketio.on("vydano")
+def vydano(data):
+    vydat_obed(data["stravnik"], data["karta"], pocty_obedu)
 
 @socketio.on("connected")
 def connector(data):
