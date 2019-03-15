@@ -1,0 +1,26 @@
+#lunchTable {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+#lunchTable th, td {
+  border-collapse: collapse;
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid black;
+}
+
+#lunchTable td {
+  font-size:3vw;
+}
+
+#lunchTable th {
+  font-size:3.3vw;
+}
+
+#pocet_obedu{
+  font-size:3vw;
+  text-align: right;
+  position : fixed;
+  bottom : 0;
+}

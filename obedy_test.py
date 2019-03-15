@@ -2,7 +2,6 @@ from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
 from time import localtime, time
 import threading
-import logging
 import mysql.connector
 import json
 
@@ -60,6 +59,7 @@ def kontrola(stravnik, karta, pocty_obedu):
 
     with open("rozvrhy.json", "r") as json_data:
         rozvrhy = json.load(json_data)
+        mimo_rozvrh = False
 
     if stravnik[3] != 1:
         print("nemá") # + píp
@@ -71,66 +71,50 @@ def kontrola(stravnik, karta, pocty_obedu):
             vydat_obed(stravnik, karta, pocty_obedu)
         else:
             if je_prestavka(cas, rozvrhy):
-                socketio.emit("a_ven", {"stravnik":stravnik, "karta":karta})
+                mimo_rozvrh = True
                 print("ven!")
             else:
                 print("else")
                 vydat_obed(stravnik, karta, pocty_obedu)
+
+    socketio.emit("pip", {"stravnik":stravnik, "karta":karta, "mimo_rozvrh":mimo_rozvrh})
 
 def pip(karta):
     cursor.execute("SELECT * FROM OBEDY WHERE id=%s"% (karta)) #MÍSTO ID DÁT DATA Z KARTY
     result = cursor.fetchall()
     return (result[0][4], result[0][5], result[0][6], result[0][7])
 
-def reader_loop(stravnici, pocty_obedu):
+def reader_loop(pocty_obedu):
     while 1:
         karta = input(">>")     #SEM DÁT ČTENÍ KARTY
-        if karta == "q":
-            break
-        elif karta:
+        if karta:
             stravnik = pip(karta)
-            stravnici.append(stravnik)
-
-            print(stravnik, "pip")
-
-            if len(stravnici) > 4:
-                stravnici.remove(stravnici[0])
-
-            socketio.emit("pip", stravnici)
-
             kontrola(stravnik, karta, pocty_obedu)
 
-stravnici = []
-print(stravnici, "generate")
 pocty_obedu = kolik_obedu()
-threading._start_new_thread(reader_loop, (stravnici, pocty_obedu))
+threading._start_new_thread(reader_loop, (pocty_obedu, ))
 
 @app.route("/")
 @app.route("/index")
 def index():
     return render_template("test.html")
 
+@app.route("/rozvrhy")
+def interface():
+    return render_template("rozvrhy.html")
+
 @socketio.on("vydano")
 def vydano(data):
     vydat_obed(data["stravnik"], data["karta"], pocty_obedu)
+
+@socketio.on("login")
+def login(heslo):
+    print(heslo, type(heslo))
+    if heslo == "nozkeus":
+        socketio.emit("authenticate" ,heslo)
 
 @socketio.on("connected")
 def connector(data):
     print(data["data"])
     socketio.emit("connection_established", data)
     socketio.emit('vydany_obed', pocty_obedu)
-    socketio.emit("pip", stravnici)
-
-#log = logging.getLogger('werkzeug') # just for testing
-#log.disabled = True
-#app.logger.disabled = True
-
-#@app.route("/")
-#@app.route("/index")
-#def index():
-#    return render_template("test.html")
-
-#@app.route("/get_data", methods=["POST", "GET"])
-#def send_data():
-    #print(stravnici, pocty_obedu, "sent")
-#    return jsonify(stravnici, pocty_obedu)
