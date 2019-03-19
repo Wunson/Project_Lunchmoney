@@ -5,15 +5,10 @@
     <title></title>
   </head>
   <body>
-    <button id="login_button" onclick="login()">Login</button>
+    <p>{{rozvrhy}}</p>
   </body>
   <script type="text/javascript" charset="utf-8">
-    function login(){
-      input = prompt("Heslo:");
-      if(input) {
-        console.log(input);
+    var rozvrhy = {{rozvrhy}}
 
-      }
-    }
   </script>
 </html>

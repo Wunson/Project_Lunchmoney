@@ -1,7 +1,8 @@
 from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
 from time import localtime, time
-import threading
+from threading import Thread
+import wave, sys, pyaudio
 import mysql.connector
 import json
 
@@ -13,108 +14,157 @@ cursor = mydb.cursor()
 
 app = Flask(__name__)
 app.config["secret_key"] = "secret!"
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode="gevent")
+thread = None
+schedule_check = 0
 
-def kolik_obedu():
+def get_lunch_amount():
     cursor.execute("SELECT COUNT(*) FROM OBEDY WHERE cislo_obedu=1 AND stav=1")
-    jednicky = cursor.fetchall()
+    ones = cursor.fetchall()
     cursor.execute("SELECT COUNT(*) FROM OBEDY WHERE cislo_obedu=2 AND stav=1")
-    dvojky = cursor.fetchall()
-    pocet = {"jednicky":jednicky[0][0], "dvojky":dvojky[0][0]}
-    return pocet
+    twos = cursor.fetchall()
+    amount = {"ones":ones[0][0], "twos":twos[0][0]}
+    return amount
 
-def in_time(range, cas):
-    print(range, cas)
-    pred = (range[0][0] > cas[0]) or ((range[0][0] == cas[0]) and (range[0][1] > cas[1]))
-    po =   (range[1][0] < cas[0]) or ((range[1][0] == cas[0]) and (range[1][1] < cas[1]))
-    return not (pred or po)
+def in_time(range, my_time):
+    before = (range[0][0] > my_time[0]) or ((range[0][0] == my_time[0]) and (range[0][1] > my_time[1]))
+    after =   (range[1][0] < my_time[0]) or ((range[1][0] == my_time[0]) and (range[1][1] < my_time[1]))
+    return not (before or after)
 
 def what_day(num):
     days = ("po", "ut", "st", "ct", "pa", "so", "ne")
+    if num > 4:
+        return "po"
     return days[num]
 
-def je_prestavka(cas, rozvrhy):
-    for doba in rozvrhy["prestavky"].values():
-        if in_time(doba, cas):
-            return True
+def break_time(my_time, schedule_table):
+    for lunchbreak in schedule_table["breaks"]:
+        if in_time(schedule_table["breaks"][lunchbreak], my_time):
+            return lunchbreak
     return False
 
-def vydat_obed(stravnik, karta, pocty_obedu):
-    print("vydano")
-    cursor.execute("UPDATE OBEDY SET STAV=2 WHERE id=%s"% (karta)) #MÍSTO ID DÁT DATA Z KARTY
-    if stravnik[2] == 1:
-        pocty_obedu["jednicky"] -=1
-    elif stravnik[2] == 2:
-        pocty_obedu["dvojky"] -=1
+def play_file(fname):
+    wf = wave.open(fname, 'rb')
+    p = pyaudio.PyAudio()
+    chunk = 1024
+
+    stream = p.open(format=p.get_format_from_width(wf.getsampwidth()),
+                    channels=wf.getnchannels(),
+                    rate=wf.getframerate(),
+                    output=True)
+
+    data = wf.readframes(chunk)
+
+    while True:
+        if data != '':
+            stream.write(data)
+            data = wf.readframes(chunk)
+
+        if data == b'':
+            break
+
+    stream.close()
+    p.terminate()
+
+def dispence_lunch(consumer, card_id, lunch_amount):
+    print("Lunch dispenced")
+    cursor.execute("UPDATE OBEDY SET STAV=2 WHERE id=%s"% (card_id)) #MÍSTO ID DÁT DATA Z KARTY
+    if consumer[2] == 1:
+        lunch_amount["ones"] -=1
+    elif consumer[2] == 2:
+        lunch_amount["twos"] -=1
     else:pass
 
-    socketio.emit('vydany_obed', pocty_obedu)
+    socketio.emit("update_amounts", lunch_amount)
 
-def kontrola(stravnik, karta, pocty_obedu):
-    cas = localtime(time())
-    day = what_day(cas.tm_wday)
-    cas = (cas.tm_hour,cas.tm_min)
-    cas = (12,25) #pryč s tím
-    print(cas, day)
+def check(consumer, card_id, lunch_amount):
+    current_time = localtime(time())
+    day = what_day(current_time.tm_wday)
+    current_time = (current_time.tm_hour,current_time.tm_min)
+    # current_time = (12,25) #pryč s tím
+    print(current_time, day)
 
-    with open("rozvrhy.json", "r") as json_data:
-        rozvrhy = json.load(json_data)
-        mimo_rozvrh = False
+    with open("schedule.json", "r") as json_data:
+        schedule_table = json.load(json_data)
 
-    if stravnik[3] != 1:
-        print("nemá") # + píp
+    miss_schedule = False
+    if consumer[3] != 1:
+        print("NO LUNCH") # + píp
     else:
-        prestavka = rozvrhy["1A"][day] #pryč s tím
-        doba = rozvrhy["prestavky"][prestavka]
-        if in_time(doba, cas):
-            print("cas")
-            vydat_obed(stravnik, karta, pocty_obedu)
-        else:
-            if je_prestavka(cas, rozvrhy):
-                mimo_rozvrh = True
-                print("ven!")
+        if schedule_check:
+            print("checking schedule")
+            lunchbreak = break_time(current_time, schedule_table)
+            if lunchbreak:
+                if consumer[1] in schedule_table[day][lunchbreak]:
+                    print("On time")
+                    dispence_lunch(consumer, card_id, lunch_amount)
+                else:
+                    print("GET OUT")
+                    miss_schedule = True
             else:
-                print("else")
-                vydat_obed(stravnik, karta, pocty_obedu)
+                print("Here you go")
+                dispence_lunch(consumer, card_id, lunch_amount)
+        else:
+            print("Here you go")
+            dispence_lunch(consumer, card_id, lunch_amount)
 
-    socketio.emit("pip", {"stravnik":stravnik, "karta":karta, "mimo_rozvrh":mimo_rozvrh})
+    print("sending consumer data")
+    socketio.emit("card_swipe", {"consumer":consumer, "card_id":card_id, "miss_schedule":miss_schedule})
 
-def pip(karta):
-    cursor.execute("SELECT * FROM OBEDY WHERE id=%s"% (karta)) #MÍSTO ID DÁT DATA Z KARTY
+def card_swipe(card_id):
+    cursor.execute("SELECT * FROM OBEDY WHERE id=%s"% (card_id)) #MÍSTO ID DÁT DATA Z KARTY
     result = cursor.fetchall()
     return (result[0][4], result[0][5], result[0][6], result[0][7])
 
-def reader_loop(pocty_obedu):
+def reader_loop():
+    global lunch_amount
     while 1:
-        karta = input(">>")     #SEM DÁT ČTENÍ KARTY
-        if karta:
-            stravnik = pip(karta)
-            kontrola(stravnik, karta, pocty_obedu)
+        card_id = input(">>")     #SEM DÁT ČTENÍ KARTY
+        if card_id:
+            consumer = card_swipe(card_id)
+            print(consumer)
+            check(consumer, card_id, lunch_amount)
 
-pocty_obedu = kolik_obedu()
-threading._start_new_thread(reader_loop, (pocty_obedu, ))
+lunch_amount = get_lunch_amount()
 
 @app.route("/")
 @app.route("/index")
 def index():
+    global thread
+    if thread is None:
+        print("loop started")
+        thread = Thread(target=reader_loop)
+        thread.start()
     return render_template("test.html")
 
 @app.route("/rozvrhy")
 def interface():
-    return render_template("rozvrhy.html")
+    with open("schedule.json", "r") as json_data:
+        schedule_table = json.load(json_data)
 
-@socketio.on("vydano")
-def vydano(data):
-    vydat_obed(data["stravnik"], data["karta"], pocty_obedu)
+    return render_template("rozvrhy.html", schedule_table=schedule_table)
+
+@socketio.on("approved")
+def disspenced(data):
+    print("deviant approoved")
+    dispence_lunch(data["consumer"], data["card_id"], lunch_amount)
+
+@socketio.on("switch_schedule")
+def switch_schedule(setting):
+    global schedule_check
+    schedule_check = setting
+    print("schedule check: ", schedule_check)
 
 @socketio.on("login")
-def login(heslo):
-    print(heslo, type(heslo))
-    if heslo == "nozkeus":
-        socketio.emit("authenticate" ,heslo)
+def login(passwd):
+    print("Recived password: ", passwd)
+    if passwd == "nozkeus":
+        socketio.emit("authenticate", passwd)
 
 @socketio.on("connected")
 def connector(data):
     print(data["data"])
-    socketio.emit("connection_established", data)
-    socketio.emit('vydany_obed', pocty_obedu)
+    socketio.emit('update_amounts', lunch_amount)
+
+if __name__ == "__main__":
+    socketio.run(app)
