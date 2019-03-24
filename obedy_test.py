@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, render_template
 from flask_socketio import SocketIO
-from time import localtime, time
-from threading import Thread
+from time import localtime, time, sleep
+import threading
 import wave, sys, pyaudio
 import mysql.connector
 import json
@@ -14,7 +14,7 @@ cursor = mydb.cursor()
 
 app = Flask(__name__)
 app.config["secret_key"] = "secret!"
-socketio = SocketIO(app, async_mode="gevent")
+socketio = SocketIO(app)
 thread = None
 schedule_check = 0
 
@@ -118,23 +118,24 @@ def card_swipe(card_id):
 
 def reader_loop():
     global lunch_amount
+    old = None
     while 1:
-        card_id = input(">>")     #SEM DÁT ČTENÍ KARTY
+        card_id = input(">>")
         if card_id:
             consumer = card_swipe(card_id)
             print(consumer)
             check(consumer, card_id, lunch_amount)
 
 lunch_amount = get_lunch_amount()
+# threading._start_new_thread(reader_loop, ())
 
 @app.route("/")
 @app.route("/index")
 def index():
     global thread
-    if thread is None:
-        print("loop started")
-        thread = Thread(target=reader_loop)
-        thread.start()
+    # if thread is None:
+    #     print("loop started")
+    #     thread = socketio.start_background_task(target=reader_loop)
     return render_template("test.html")
 
 @app.route("/rozvrhy")
@@ -154,6 +155,12 @@ def switch_schedule(setting):
     global schedule_check
     schedule_check = setting
     print("schedule check: ", schedule_check)
+
+@socketio.on("schedule_change")
+def update_schedule(schedule):
+    print("schedule updated")
+    with open("schedule.json", "w") as json_data:
+        json.dump(schedule, json_data)
 
 @socketio.on("login")
 def login(passwd):

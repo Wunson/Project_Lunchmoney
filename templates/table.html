@@ -32,14 +32,10 @@
   <script type="text/javascript" charset="utf-8">
 
 
-      var socket = io.connect("http://192.168.1.144:5000"); //sem dát správnou ip
+      var socket = io.connect("http://localhost:5000"); //sem dát správnou ip
       socket.on("connect", function(){
         console.log("connect")
         socket.emit("connected", {data: "ping"});
-      });
-
-      socket.on("connection_established"  , function() {
-        console.log("connection_established");
       });
 
       socket.on('vydany_obed', function(obedy){
@@ -48,7 +44,7 @@
         document.getElementById("pocet_dvojek").innerHTML = obedy.dvojky;
       });
 
-      socket.on("pip", function(data){
+      socket.on("card_swipe", function(data){
         var stravnik = data.stravnik;
         console.log(stravnik);
         var table = document.getElementById("lunchTable");
