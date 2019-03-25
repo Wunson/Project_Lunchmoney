@@ -5,6 +5,8 @@ import threading
 import wave, sys, pyaudio
 import mysql.connector
 import json
+import serial
+
 
 mydb = mysql.connector.connect(host="localhost",
                                 user="root",
@@ -17,6 +19,10 @@ app.config["secret_key"] = "secret!"
 socketio = SocketIO(app)
 thread = None
 schedule_check = 0
+
+ser = serial.Serial()
+ser.baudrate = 9600
+ser.port = 'COM4'
 
 def get_lunch_amount():
     cursor.execute("SELECT COUNT(*) FROM OBEDY WHERE cislo_obedu=1 AND stav=1")
@@ -116,26 +122,22 @@ def card_swipe(card_id):
     result = cursor.fetchall()
     return (result[0][4], result[0][5], result[0][6], result[0][7])
 
-def reader_loop():
-    global lunch_amount
-    old = None
+def reader_loop(lunch_amount):
+    ser.open()
     while 1:
-        card_id = input(">>")
+        card_id = ser.readline()
+        card_id = str(card_id, 'utf-8')
         if card_id:
             consumer = card_swipe(card_id)
             print(consumer)
             check(consumer, card_id, lunch_amount)
 
 lunch_amount = get_lunch_amount()
-# threading._start_new_thread(reader_loop, ())
+threading._start_new_thread(reader_loop, (lunch_amount, ))
 
 @app.route("/")
 @app.route("/index")
 def index():
-    global thread
-    # if thread is None:
-    #     print("loop started")
-    #     thread = socketio.start_background_task(target=reader_loop)
     return render_template("test.html")
 
 @app.route("/rozvrhy")
@@ -157,10 +159,10 @@ def switch_schedule(setting):
     print("schedule check: ", schedule_check)
 
 @socketio.on("schedule_change")
-def update_schedule(schedule):
+def update_schedule(data):
     print("schedule updated")
     with open("schedule.json", "w") as json_data:
-        json.dump(schedule, json_data)
+        json.dump(data["data"], json_data)
 
 @socketio.on("login")
 def login(passwd):

@@ -76,7 +76,7 @@
        var content = schedule_table[position[0]][position[1]];
        if (content.includes(text)) {
          var i = content.indexOf(text);
-         content.splice(i)
+         content.splice(i, 1)
          schedule_table[position[0]][position[1]] = content;
          var id = text_id + "C"
          cell = document.getElementById(id);

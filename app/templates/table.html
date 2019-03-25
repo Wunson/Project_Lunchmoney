@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/display.css')}}"/>
+    <script type="text/javascript" src="//cdnjs.cloudflare.com/ajax/libs/socket.io/1.3.6/socket.io.min.js"></script>
+    <title></title>
+  </head>
+  <body>
+    <table id="lunchTable">
+      <thead>
+        <th>Jméno</th><th>Třída</th><th>Oběd</th><th>Stav</th>
+      </thead>
+      <tbody>
+        <!-- <tr>
+          <td id="jmeno">Jan Nová</td><td id="trida">4B</td><td id="obed">2</td><td id="stav">1</td>
+        </tr> -->
+      </tbody>
+    </table>
+    <button id="login_button" onclick= "login_prompt()" >Přihlásit</button>
+    <button id="switch_button" onclick= "switch_schedule()" >Zapnout kontrolu rozvrhu</button>
+    <table id="pocet_obedu">
+      <tr>
+        <th>Jedničky:</th><th id="ones"></th>
+      </tr>
+
+      <tr>
+        <th>Dvojky:</th><th id="twos"></th>
+      </tr>
+    </table>
+
+  </body>
+  <script type="text/javascript" charset="utf-8">
+      window.authentication = 0;
+      window.schedule_check = 0;
+
+      var socket = io.connect("http://localhost:5000"); //sem dát správnou ip
+
+      socket.on("connect", function(){
+        console.log("connect")
+        socket.emit("connected", {data: "conected"});
+      });
+
+      socket.on("update_amounts", function(amount){
+        console.log("recived lunch amounts");
+        document.getElementById("ones").innerHTML = amount.ones;
+        document.getElementById("twos").innerHTML = amount.twos;
+      });
+
+      function login_prompt(){
+        var passwd = prompt("Heslo:");
+        if (passwd) {
+          console.log(passwd);
+          socket.emit("login", passwd);
+        }
+      }
+
+      function switch_schedule(){
+        if (window.authentication) {
+          console.log("switch");
+          if (window.schedule_check) {
+            document.getElementById("switch_button").innerHTML = "Zapnout kontrolu rozvrhu";
+            window.schedule_check = 0;
+            socket.emit("switch_schedule", window.schedule_check);
+          }
+          else {
+            document.getElementById("switch_button").innerHTML = "Vypnout kontrolu rozvrhu";
+            window.schedule_check = 1;
+            socket.emit("switch_schedule", window.schedule_check);
+          }
+        }
+      }
+
+      socket.on("authenticate", function(){
+        alert("logged in")
+        window.authentication = 1
+      });
+
+      socket.on("card_swipe", function(data){
+        var consumer = data.consumer;
+        console.log(consumer);
+        var table = document.getElementById("lunchTable");
+        var row = table.insertRow(1);
+        for(var i = 0; i < consumer.length; i++) {
+          var cell =  row.insertCell(i);
+          var content = consumer[i];
+            if(i == 3) {
+              if(content == 2){
+                row.style.backgroundColor = "#F9A8A8";
+                var content = "Vydáno";
+              }
+              else {
+                row.style.backgroundColor = "#97FBA3";
+                var content = "Objednáno";
+              }
+            }
+
+            if(data.miss_schedule){
+              row.style.backgroundColor = "#F3FE8C";
+            }
+
+          cell.innerHTML = content;
+        }
+
+        var rows = (document.getElementById("lunchTable").getElementsByTagName("tr").length) - 1; //counts lenght of existing table - 1(head)
+        if (rows > 4) {
+          document.getElementById("lunchTable").deleteRow(5); //deletes all rows below thead
+        }
+        if(window.authentication){
+          if(data.miss_schedule){
+            if (confirm(data.consumer[0] + " tu je mimo rozvrh. Vydat Oběd?")){
+              socket.emit("approved", data);
+              row.style.backgroundColor = "#97FBA3";
+              alert("Vydáno");
+            }
+          }
+        }
+      });
+
+  </script>
+</html>
