@@ -8,6 +8,7 @@
     <table id="schedule">
     </table>
     <button id="send_button" onclick= "send_data()" >Odeslat rozvrh</button>
+    <button id="login_button" onclick= "login_prompt()" >Přihlásit</button>
 
   </body>
   <script type="text/javascript" charset="utf-8">
@@ -67,6 +68,14 @@
     function send_data(){
       console.log("asasasasa");
       socket.emit("schedule_change", {data: schedule_table});
+    }
+
+    function login_prompt(){
+      var passwd = prompt("Heslo:");
+      if (passwd) {
+        console.log(passwd);
+        socket.emit("login", passwd);
+      }
     }
 
     function update_table(text_id){

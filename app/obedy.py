@@ -1,4 +1,5 @@
-from flask import Flask, jsonify, render_template
+#___________________________________IMPORTS____________________________________
+from flask import Flask, render_template
 from flask_socketio import SocketIO
 from time import localtime, time, sleep
 import threading
@@ -7,6 +8,10 @@ import mysql.connector
 import json
 import serial
 
+#____________________________________INIT______________________________________
+app = Flask(__name__)
+app.config["secret_key"] = "secret!"
+socketio = SocketIO(app)
 
 mydb = mysql.connector.connect(host="localhost",
                                 user="root",
@@ -14,16 +19,13 @@ mydb = mysql.connector.connect(host="localhost",
                                 db="obedy_test")
 cursor = mydb.cursor()
 
-app = Flask(__name__)
-app.config["secret_key"] = "secret!"
-socketio = SocketIO(app)
-thread = None
-schedule_check = 0
-
 ser = serial.Serial()
 ser.baudrate = 9600
 ser.port = 'COM4'
 
+schedule_check = 0
+
+#____________________________________FUNCIONS__________________________________
 def get_lunch_amount():
     cursor.execute("SELECT COUNT(*) FROM OBEDY WHERE cislo_obedu=1 AND stav=1")
     ones = cursor.fetchall()
@@ -51,22 +53,21 @@ def break_time(my_time, schedule_table):
 
 def dispence_lunch(consumer, card_id, lunch_amount):
     print("Lunch dispenced")
-    cursor.execute("UPDATE OBEDY SET STAV=2 WHERE id=%s"% (card_id)) #MÍSTO ID DÁT DATA Z KARTY
+    cursor.execute("UPDATE OBEDY SET STAV=2 WHERE karta=%s", (card_id,))
     if consumer[2] == 1:
-        lunch_amount["ones"] -=1
+        lunch_amount["ones"] -= 1
         playsound("audio/one.wav")
     elif consumer[2] == 2:
-        lunch_amount["twos"] -=1
+        lunch_amount["twos"] -= 1
         playsound("audio/two.wav")
     else:pass
-
     socketio.emit("update_amounts", lunch_amount)
 
 def check(consumer, card_id, lunch_amount):
     current_time = localtime(time())
     day = what_day(current_time.tm_wday)
     current_time = (current_time.tm_hour,current_time.tm_min)
-    # current_time = (12,25) #pryč s tím
+    current_time = (12,25)
     print(current_time, day)
 
     with open("schedule.json", "r") as json_data:
@@ -74,7 +75,7 @@ def check(consumer, card_id, lunch_amount):
 
     miss_schedule = False
     if consumer[3] != 1:
-        print("NO LUNCH") # + píp
+        print("NO LUNCH")
         playsound("audio/no.wav")
     else:
         if schedule_check:
@@ -99,23 +100,33 @@ def check(consumer, card_id, lunch_amount):
     socketio.emit("card_swipe", {"consumer":consumer, "card_id":card_id, "miss_schedule":miss_schedule})
 
 def card_swipe(card_id):
-    cursor.execute("SELECT * FROM OBEDY WHERE id=%s"% (card_id)) #MÍSTO ID DÁT DATA Z KARTY
+    cursor.execute("SELECT * FROM OBEDY WHERE karta=%s", (card_id,))
     result = cursor.fetchall()
-    return (result[0][4], result[0][5], result[0][6], result[0][7])
+    print(result)
+    if result:
+        return (result[0][4], result[0][5], result[0][6], result[0][7])
+    else: return False
 
+#___________________________________LOOP_______________________________________
 def reader_loop(lunch_amount):
     ser.open()
     while 1:
-        card_id = ser.readline()
+        card_id = ser.readline().strip()
         card_id = str(card_id, 'utf-8')
+        print(card_id)
+        print(type(card_id))
         if card_id:
             consumer = card_swipe(card_id)
             print(consumer)
-            check(consumer, card_id, lunch_amount)
+            if consumer:
+                check(consumer, card_id, lunch_amount)
+            else:
+                print("invalid id")
 
 lunch_amount = get_lunch_amount()
 threading._start_new_thread(reader_loop, (lunch_amount, ))
 
+#___________________________________COMUNICATION_______________________________
 @app.route("/")
 @app.route("/index")
 def index():
@@ -156,5 +167,6 @@ def connector(data):
     print(data["data"])
     socketio.emit('update_amounts', lunch_amount)
 
+#___________________________________SERVER_START_______________________________
 if __name__ == "__main__":
     socketio.run(app)
