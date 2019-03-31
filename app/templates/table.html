@@ -17,7 +17,6 @@
         </tr> -->
       </tbody>
     </table>
-    <button id="login_button" onclick= "login_prompt()" >Přihlásit</button>
     <button id="switch_button" onclick= "switch_schedule()" >Zapnout kontrolu rozvrhu</button>
     <table id="pocet_obedu">
       <tr>
@@ -31,7 +30,6 @@
 
   </body>
   <script type="text/javascript" charset="utf-8">
-      window.authentication = 0;
       window.schedule_check = 0;
 
       var socket = io.connect("http://localhost:5000"); //sem dát správnou ip
@@ -56,25 +54,18 @@
       }
 
       function switch_schedule(){
-        if (window.authentication) {
-          console.log("switch");
-          if (window.schedule_check) {
-            document.getElementById("switch_button").innerHTML = "Zapnout kontrolu rozvrhu";
-            window.schedule_check = 0;
-            socket.emit("switch_schedule", window.schedule_check);
-          }
-          else {
-            document.getElementById("switch_button").innerHTML = "Vypnout kontrolu rozvrhu";
-            window.schedule_check = 1;
-            socket.emit("switch_schedule", window.schedule_check);
-          }
+        console.log("switch");
+        if (window.schedule_check) {
+          document.getElementById("switch_button").innerHTML = "Zapnout kontrolu rozvrhu";
+          window.schedule_check = 0;
+          socket.emit("switch_schedule", window.schedule_check);
+        }
+        else {
+          document.getElementById("switch_button").innerHTML = "Vypnout kontrolu rozvrhu";
+          window.schedule_check = 1;
+          socket.emit("switch_schedule", window.schedule_check);
         }
       }
-
-      socket.on("authenticate", function(){
-        alert("logged in")
-        window.authentication = 1
-      });
 
       socket.on("card_swipe", function(data){
         var consumer = data.consumer;
@@ -106,13 +97,11 @@
         if (rows > 4) {
           document.getElementById("lunchTable").deleteRow(5); //deletes all rows below thead
         }
-        if(window.authentication){
-          if(data.miss_schedule){
-            if (confirm(data.consumer[0] + " tu je mimo rozvrh. Vydat Oběd?")){
-              socket.emit("approved", data);
-              row.style.backgroundColor = "#97FBA3";
-              alert("Vydáno");
-            }
+        if(data.miss_schedule){
+          if (confirm(data.consumer[0] + " tu je mimo rozvrh. Vydat Oběd?")){
+            socket.emit("approved", data);
+            row.style.backgroundColor = "#97FBA3";
+            alert("Vydáno");
           }
         }
       });

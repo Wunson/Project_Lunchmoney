@@ -8,7 +8,6 @@
     <table id="schedule">
     </table>
     <button id="send_button" onclick= "send_data()" >Odeslat rozvrh</button>
-    <button id="login_button" onclick= "login_prompt()" >Přihlásit</button>
 
   </body>
   <script type="text/javascript" charset="utf-8">
@@ -16,7 +15,7 @@
     var table = document.getElementById("schedule");
     var days = Object.keys(schedule_table);
     console.log(days);
-    for (var i = 0; i < days.length; i++) {
+    for (var i = 0; i < (days.length-1); i++) {
       var day = days[i];
       console.log(i);
       console.log(day);
@@ -59,7 +58,7 @@
       var cell = row.insertCell();
     }
 
-    var socket = io.connect("http://localhost:5000"); //sem dát správnou ip
+    var socket = io.connect("http://localhost:5000");
     socket.on("connect", function(){
       console.log("connect")
       socket.emit("connected", {data: "ping"});
@@ -68,14 +67,6 @@
     function send_data(){
       console.log("asasasasa");
       socket.emit("schedule_change", {data: schedule_table});
-    }
-
-    function login_prompt(){
-      var passwd = prompt("Heslo:");
-      if (passwd) {
-        console.log(passwd);
-        socket.emit("login", passwd);
-      }
     }
 
     function update_table(text_id){

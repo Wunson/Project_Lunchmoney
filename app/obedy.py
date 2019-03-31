@@ -2,11 +2,11 @@
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 from time import localtime, time, sleep
-import threading
 from playsound import playsound
 import mysql.connector
-import json
+import threading
 import serial
+import json
 
 #____________________________________INIT______________________________________
 app = Flask(__name__)
@@ -114,7 +114,6 @@ def reader_loop(lunch_amount):
         card_id = ser.readline().strip()
         card_id = str(card_id, 'utf-8')
         print(card_id)
-        print(type(card_id))
         if card_id:
             consumer = card_swipe(card_id)
             print(consumer)
@@ -139,6 +138,11 @@ def interface():
 
     return render_template("rozvrhy.html", schedule_table=schedule_table)
 
+@socketio.on("connected")
+def connector(data):
+    print(data["data"])
+    socketio.emit('update_amounts', lunch_amount)
+
 @socketio.on("approved")
 def disspenced(data):
     print("deviant approoved")
@@ -155,17 +159,6 @@ def update_schedule(data):
     print("schedule updated")
     with open("schedule.json", "w") as json_data:
         json.dump(data["data"], json_data)
-
-@socketio.on("login")
-def login(passwd):
-    print("Recived password: ", passwd)
-    if passwd == "nozkeus":
-        socketio.emit("authenticate", passwd)
-
-@socketio.on("connected")
-def connector(data):
-    print(data["data"])
-    socketio.emit('update_amounts', lunch_amount)
 
 #___________________________________SERVER_START_______________________________
 if __name__ == "__main__":
