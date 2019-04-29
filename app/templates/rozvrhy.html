@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
   <head>
     <meta charset="utf-8">
@@ -12,51 +13,7 @@
   </body>
   <script type="text/javascript" charset="utf-8">
     var schedule_table = {{schedule_table | safe}};
-    var table = document.getElementById("schedule");
-    var days = Object.keys(schedule_table);
-    console.log(days);
-    for (var i = 0; i < (days.length-1); i++) {
-      var day = days[i];
-      console.log(i);
-      console.log(day);
-
-      var breaks = Object.keys(schedule_table[day]);
-      var row = table.insertRow();
-      var cell = row.insertCell(0);
-      cell.innerHTML = day;
-
-      for (var j = 0; j < breaks.length; j++) {
-        console.log(j);
-        var brek = breaks[j];
-        var row = table.insertRow();
-        var cell1 = row.insertCell(0);
-        cell1.innerHTML = brek;
-        console.log(brek);
-
-        var cell2 = row.insertCell(1);
-        cell2.innerHTML = schedule_table[day][brek];
-        var id = day + "_" + brek + "C"
-        cell2.setAttribute("id", id);
-        console.log(cell2.id);
-        console.log(schedule_table[day][brek]);
-
-        var cell3 = row.insertCell(2);
-        var box = document.createElement("INPUT");
-        box.setAttribute("type", "text");
-        var id = day + "_" + brek;
-        box.setAttribute("id", id);
-        cell3.appendChild(box);
-        console.log(day + brek);
-
-        var cell4 = row.insertCell(3);
-        var but = document.createElement("INPUT");
-        but.setAttribute("type", "button");
-        but.setAttribute("onClick", "update_table(\'"+ day + "_" + brek + "\')");
-        cell4.appendChild(but);
-      }
-      var row = table.insertRow();
-      var cell = row.insertCell();
-    }
+    generate_table()
 
     var socket = io.connect("http://localhost:5000");
     socket.on("connect", function(){
@@ -65,8 +22,56 @@
     });
 
     function send_data(){
-      console.log("asasasasa");
+      console.log("schedule change");
       socket.emit("schedule_change", {data: schedule_table});
+    }
+
+    function generate_table(){
+      var table = document.getElementById("schedule");
+      var days = Object.keys(schedule_table);
+      console.log(days);
+      for (var i = 0; i < (days.length-1); i++) {
+        var day = days[i];
+        console.log(i);
+        console.log(day);
+
+        var breaks = Object.keys(schedule_table[day]);
+        var row = table.insertRow();
+        var cell = row.insertCell(0);
+        cell.innerHTML = day;
+
+        for (var j = 0; j < breaks.length; j++) {
+          console.log(j);
+          var brek = breaks[j];
+          var row = table.insertRow();
+          var cell1 = row.insertCell(0);
+          cell1.innerHTML = brek;
+          console.log(brek);
+
+          var cell2 = row.insertCell(1);
+          cell2.innerHTML = schedule_table[day][brek];
+          var id = day + "_" + brek + "C"
+          cell2.setAttribute("id", id);
+          console.log(cell2.id);
+          console.log(schedule_table[day][brek]);
+
+          var cell3 = row.insertCell(2);
+          var box = document.createElement("INPUT");
+          box.setAttribute("type", "text");
+          var id = day + "_" + brek;
+          box.setAttribute("id", id);
+          cell3.appendChild(box);
+          console.log(day + brek);
+
+          var cell4 = row.insertCell(3);
+          var but = document.createElement("INPUT");
+          but.setAttribute("type", "button");
+          but.setAttribute("onClick", "update_table(\'"+ day + "_" + brek + "\')");
+          cell4.appendChild(but);
+        }
+        var row = table.insertRow();
+        var cell = row.insertCell();
+      }
     }
 
     function update_table(text_id){
